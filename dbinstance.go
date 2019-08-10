@@ -39,7 +39,3 @@ func (i *instance) CheckConnection() DBState {
 	}
 	return newState
 }
-
-func (i *instance) GetDB() *sql.DB {
-	return i.DB
-}
