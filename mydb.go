@@ -8,11 +8,11 @@ import (
 
 type RWSplitDB struct {
 	master       *sql.DB
-	readreplicas []interface{}
+	readreplicas []*sql.DB
 	count        int
 }
 
-func NewDB(master *sql.DB, readreplicas ...interface{}) DB {
+func NewDB(master *sql.DB, readreplicas ...*sql.DB) DB {
 	return &RWSplitDB{
 		master:       master,
 		readreplicas: readreplicas,
@@ -21,7 +21,7 @@ func NewDB(master *sql.DB, readreplicas ...interface{}) DB {
 
 func (db *RWSplitDB) readReplicaRoundRobin() *sql.DB {
 	db.count++
-	return db.readreplicas[db.count%len(db.readreplicas)].(*sql.DB)
+	return db.readreplicas[db.count%len(db.readreplicas)]
 }
 
 func (db *RWSplitDB) Ping() error {
@@ -30,7 +30,7 @@ func (db *RWSplitDB) Ping() error {
 	}
 
 	for i := range db.readreplicas {
-		if err := db.readreplicas[i].(*sql.DB).Ping(); err != nil {
+		if err := db.readreplicas[i].Ping(); err != nil {
 			panic(err)
 		}
 	}
@@ -44,7 +44,7 @@ func (db *RWSplitDB) PingContext(ctx context.Context) error {
 	}
 
 	for i := range db.readreplicas {
-		if err := db.readreplicas[i].(*sql.DB).PingContext(ctx); err != nil {
+		if err := db.readreplicas[i].PingContext(ctx); err != nil {
 			panic(err)
 		}
 	}
@@ -79,7 +79,7 @@ func (db *RWSplitDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx,
 func (db *RWSplitDB) Close() error {
 	db.master.Close()
 	for i := range db.readreplicas {
-		db.readreplicas[i].(*sql.DB).Close()
+		db.readreplicas[i].Close()
 	}
 	return nil
 }
@@ -103,20 +103,20 @@ func (db *RWSplitDB) PrepareContext(ctx context.Context, query string) (*sql.Stm
 func (db *RWSplitDB) SetConnMaxLifetime(d time.Duration) {
 	db.master.SetConnMaxLifetime(d)
 	for i := range db.readreplicas {
-		db.readreplicas[i].(*sql.DB).SetConnMaxLifetime(d)
+		db.readreplicas[i].SetConnMaxLifetime(d)
 	}
 }
 
 func (db *RWSplitDB) SetMaxIdleConns(n int) {
 	db.master.SetMaxIdleConns(n)
 	for i := range db.readreplicas {
-		db.readreplicas[i].(*sql.DB).SetMaxIdleConns(n)
+		db.readreplicas[i].SetMaxIdleConns(n)
 	}
 }
 
 func (db *RWSplitDB) SetMaxOpenConns(n int) {
 	db.master.SetMaxOpenConns(n)
 	for i := range db.readreplicas {
-		db.readreplicas[i].(*sql.DB).SetMaxOpenConns(n)
+		db.readreplicas[i].SetMaxOpenConns(n)
 	}
 }
