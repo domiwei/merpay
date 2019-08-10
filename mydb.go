@@ -3,23 +3,55 @@ package mydb
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 )
 
 type RWSplitDB struct {
-	master       *sql.DB
-	readreplicas []*sql.DB
+	master       *instance
+	readreplicas []*instance
 	count        int
 }
 
 func NewDB(master *sql.DB, readreplicas ...*sql.DB) DB {
+	masterIns := NewDBInstance(master)
+	if state := masterIns.CheckConnection(); state != DBStateConnected {
+		panic("Cannot connect to only master db")
+	}
+
+	// Check state of replicas concurrently
+	var wg sync.WaitGroup
+	replicaInses := []*instance{}
+	for i := range readreplicas {
+		replicaIns := NewDBInstance(readreplicas[i])
+		replicaInses = append(replicaInses, replicaIns)
+		wg.Add(1)
+		go func(replicaIns *instance) {
+			defer wg.Done()
+			replicaIns.CheckConnection()
+		}(replicaIns)
+	}
+	wg.Wait()
+
+	// Reject to init if all replicas are disconnected
+	someoneAlive := false
+	for _, r := range replicaInses {
+		if r.IsAlive() {
+			someoneAlive = true
+			break
+		}
+	}
+	if !someoneAlive {
+		panic("Cannot connect to any replica")
+	}
+
 	return &RWSplitDB{
-		master:       master,
-		readreplicas: readreplicas,
+		master:       masterIns,
+		readreplicas: replicaInses,
 	}
 }
 
-func (db *RWSplitDB) readReplicaRoundRobin() *sql.DB {
+func (db *RWSplitDB) readReplicaRoundRobin() *instance {
 	db.count++
 	return db.readreplicas[db.count%len(db.readreplicas)]
 }
