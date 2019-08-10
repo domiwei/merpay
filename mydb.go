@@ -3,6 +3,7 @@ package mydb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -13,10 +14,10 @@ type RWSplitDB struct {
 	count        int
 }
 
-func NewDB(master *sql.DB, readreplicas ...*sql.DB) DB {
+func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 	masterIns := NewDBInstance(master)
 	if state := masterIns.CheckConnection(); state != DBStateConnected {
-		panic("Cannot connect to only master db")
+		return nil, fmt.Errorf("Cannot connect to master db")
 	}
 
 	// Check state of replicas concurrently
@@ -42,13 +43,13 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) DB {
 		}
 	}
 	if !someoneAlive {
-		panic("Cannot connect to any replica")
+		return nil, fmt.Errorf("Cannot connect to any replica")
 	}
 
 	return &RWSplitDB{
 		master:       masterIns,
 		readreplicas: replicaInses,
-	}
+	}, nil
 }
 
 func (db *RWSplitDB) readReplicaRoundRobin() *instance {
