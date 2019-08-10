@@ -59,30 +59,40 @@ func (db *RWSplitDB) readReplicaRoundRobin() *instance {
 
 func (db *RWSplitDB) Ping() error {
 	if err := db.master.Ping(); err != nil {
-		panic(err)
+		return err
 	}
 
-	for i := range db.readreplicas {
-		if err := db.readreplicas[i].Ping(); err != nil {
-			panic(err)
+	// Ping replica concurrently
+	var err error
+	ping := func(dbIns *instance) error {
+		return dbIns.Ping()
+	}
+	for result := range db.concurrentlyDo(ping) {
+		if result != nil {
+			err = result
+			fmt.Errorf(err.Error())
 		}
 	}
-
-	return nil
+	return err
 }
 
 func (db *RWSplitDB) PingContext(ctx context.Context) error {
 	if err := db.master.PingContext(ctx); err != nil {
-		panic(err)
+		return err
 	}
 
-	for i := range db.readreplicas {
-		if err := db.readreplicas[i].PingContext(ctx); err != nil {
-			panic(err)
+	// Ping replica concurrently
+	var err error
+	ping := func(dbIns *instance) error {
+		return dbIns.PingContext(ctx)
+	}
+	for result := range db.concurrentlyDo(ping) {
+		if result != nil {
+			err = result
+			fmt.Errorf(err.Error())
 		}
 	}
-
-	return nil
+	return err
 }
 
 func (db *RWSplitDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
@@ -152,4 +162,21 @@ func (db *RWSplitDB) SetMaxOpenConns(n int) {
 	for i := range db.readreplicas {
 		db.readreplicas[i].SetMaxOpenConns(n)
 	}
+}
+
+func (db *RWSplitDB) concurrentlyDo(f func(dbIns *instance) error) <-chan error {
+	resultChan := make(chan error)
+	go func() {
+		var wg sync.WaitGroup
+		for _, replica := range db.readreplicas {
+			wg.Add(1)
+			go func(replica *instance) {
+				defer wg.Done()
+				resultChan <- f(replica)
+			}(replica)
+		}
+		wg.Wait()
+		close(resultChan)
+	}()
+	return resultChan
 }
