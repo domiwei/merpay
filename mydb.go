@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/prometheus/common/log"
 )
 
 var (
@@ -15,6 +17,7 @@ var (
 type RWSplitDB struct {
 	master       *instance
 	readreplicas []*instance
+	numReplica   int
 	count        int
 }
 
@@ -32,6 +35,7 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 	db := &RWSplitDB{
 		master:       masterIns,
 		readreplicas: replicaInses,
+		numReplica:   len(replicaInses),
 	}
 
 	// Check connection state for each replica
@@ -42,7 +46,7 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 		}
 	}
 	// Reject if all replicas are disconnected
-	if disConnCount == len(replicaInses) {
+	if disConnCount == db.numReplica {
 		return nil, fmt.Errorf("Cannot connect to any replica")
 	}
 
@@ -161,6 +165,27 @@ func (db *RWSplitDB) SetMaxOpenConns(n int) {
 	for i := range db.readreplicas {
 		db.readreplicas[i].SetMaxOpenConns(n)
 	}
+}
+
+func (db *RWSplitDB) randomRoundRobin(f func(dbIns *instance) error) error {
+	err := ErrDisconnected
+	numReplica := int32(db.numReplica)
+	// Pick up any random index of read-replica, and try to invoke callback func.
+	// Once it failed for any reason, move on to next replica in the slice.
+	randIndex := RandPosInt() % numReplica
+	for i := randIndex; i < randIndex+numReplica; i++ {
+		idx := i % numReplica
+		if db.readreplicas[idx].IsAlive() {
+			if err = f(db.readreplicas[idx]); err != nil {
+				log.Errorf("Error on readReplica[%d]. Error: %s", idx, err.Error())
+				// TODO: update state of this replica
+				continue
+			}
+			// On success, break the loop and return nil
+			break
+		}
+	}
+	return err
 }
 
 // concurrentlyDo invoke f for each replica concurrently. It returns a channel
