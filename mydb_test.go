@@ -3,7 +3,6 @@ package mydb
 import (
 	"database/sql"
 	"testing"
-	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/suite"
@@ -124,7 +123,6 @@ func (s *mydbSuite) TestQuery() {
 	rows, err := s.mydb.Query("SELECT * FROM table WHERE name=?", "kewei")
 	rows.Close()
 	s.Require().Equal(err, nil)
-	time.Sleep(time.Second)
 }
 
 func TestMydb(t *testing.T) {
