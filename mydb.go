@@ -11,14 +11,17 @@ import (
 )
 
 var (
-	ErrDisconnected = fmt.Errorf("DB was disconnected")
+	ErrDisconnected       = fmt.Errorf("DB was disconnected")
+	periodicallyCheckTime = 5 * time.Minute
 )
 
 type RWSplitDB struct {
-	master       *instance
-	readreplicas []*instance
-	numReplica   int
-	count        int
+	master           *instance
+	readreplicas     []*instance
+	numReplica       int
+	count            int
+	toBeCheckIdxChan chan int
+	shutDownChan     chan struct{}
 }
 
 func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
@@ -33,9 +36,11 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 		replicaInses = append(replicaInses, replicaIns)
 	}
 	db := &RWSplitDB{
-		master:       masterIns,
-		readreplicas: replicaInses,
-		numReplica:   len(replicaInses),
+		master:           masterIns,
+		readreplicas:     replicaInses,
+		numReplica:       len(replicaInses),
+		toBeCheckIdxChan: make(chan int, len(replicaInses)*2),
+		shutDownChan:     make(chan struct{}),
 	}
 
 	// Check connection state for each replica
@@ -49,6 +54,9 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 	if disConnCount == db.numReplica {
 		return nil, fmt.Errorf("Cannot connect to any replica")
 	}
+
+	// Launch a checker do periodical state checking
+	go db.replicaChecker()
 
 	return db, nil
 }
@@ -143,6 +151,9 @@ func (db *RWSplitDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx,
 }
 
 func (db *RWSplitDB) Close() error {
+	// First notify to shutdown
+	db.shutDownChan <- struct{}{}
+	// Close all
 	db.master.Close()
 	for i := range db.readreplicas {
 		db.readreplicas[i].Close()
@@ -198,8 +209,9 @@ func (db *RWSplitDB) readReplicaRandomRoundRobin(f func(dbIns *instance) error) 
 		// First check if this db is still alive or not
 		if db.readreplicas[idx].IsAlive() {
 			if err = f(db.readreplicas[idx]); err != nil {
+				// notify monitor to update state of this replica
+				db.notifyCheckReplica(int(idx))
 				log.Errorf("Error on readReplica[%d]. Error: %s", idx, err.Error())
-				// TODO: update state of this replica
 				continue
 			}
 			// On success, break the loop and return nil
@@ -229,6 +241,33 @@ func (db *RWSplitDB) concurrentlyDo(f func(dbIns *instance) error) <-chan error 
 	return resultChan
 }
 
+func (db *RWSplitDB) notifyCheckReplica(idx int) {
+	select {
+	case db.toBeCheckIdxChan <- int(idx):
+	default:
+		// Skip it while buffer is full
+	}
+}
+
+func (db *RWSplitDB) replicaChecker() {
+	// This func runs in a infinite for loop to periodically
+	// check connection state until db is closed.
+	for {
+		select {
+		case <-time.After(periodicallyCheckTime):
+			for range db.concurrentlyDo(checkConn) {
+			}
+			return
+		case idx := <-db.toBeCheckIdxChan:
+			// Someone reports a replica is disconnected, so check it.
+			db.readreplicas[idx].CheckConnection()
+			return
+		case <-db.shutDownChan:
+			return
+		}
+	}
+}
+
 // checkConn is a helper func to check connection state. This function is passed as
 // an argument of concurrentlyDo.
 func checkConn(dbIns *instance) error {
@@ -243,9 +282,9 @@ func checkConn(dbIns *instance) error {
 // is still allowed to perform while using this ReadWriteSplit DB driver.
 type Row struct {
 	query string
-	args []interface{}
-	ctx context.Context
-	db *RWSplitDB
+	args  []interface{}
+	ctx   context.Context
+	db    *RWSplitDB
 }
 
 func (r *Row) Scan(dest ...interface{}) error {
