@@ -3,6 +3,7 @@ package mydb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	ErrDisconnected       = fmt.Errorf("DB was disconnected")
+	ErrDisconnected       = errors.New("DB was disconnected")
 	periodicallyCheckTime = 5 * time.Minute
 )
 
@@ -241,6 +242,7 @@ func (db *RWSplitDB) concurrentlyDo(f func(dbIns *instance) error) <-chan error 
 	return resultChan
 }
 
+// notifyCheckReplica notifies replica checker to check state of this replica.
 func (db *RWSplitDB) notifyCheckReplica(idx int) {
 	select {
 	case db.toBeCheckIdxChan <- int(idx):

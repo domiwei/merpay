@@ -8,7 +8,9 @@ import (
 
 type instance struct {
 	*sql.DB
-	state         DBState
+	// Cached DB state
+	state DBState
+	// Last checking timestamp
 	lastCheckTime int64
 	pingLock      uint32
 }
@@ -25,7 +27,8 @@ func (i *instance) IsAlive() bool {
 	return i.safeGetState() == DBStateConnected
 }
 
-// CheckConnection checks connection state and update it if needed
+// CheckConnection checks connection state and update it if needed.
+// This function is thread-safe. Only one thread is allowed to ping DB anytime.
 func (i *instance) CheckConnection() DBState {
 	t := atomic.LoadInt64(&i.lastCheckTime)
 	if time.Now().Unix()-t < 5 {
