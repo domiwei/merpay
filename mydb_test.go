@@ -1,6 +1,7 @@
 package mydb
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -121,6 +122,21 @@ func (s *mydbSuite) TestQuery() {
 	s.mockReplica[numReplica-1].ExpectQuery("^SELECT (.+) FROM table").WithArgs("kewei").WillReturnRows(returnRows)
 	// Run
 	rows, err := s.mydb.Query("SELECT * FROM table WHERE name=?", "kewei")
+	rows.Close()
+	s.Require().Equal(err, nil)
+}
+
+func (s *mydbSuite) TestQueryContext() {
+	// Close some replicas except for last one
+	for i := 0; i < numReplica-1; i++ {
+		s.replica[i].Close()
+	}
+
+	// Prepare mock result
+	returnRows := sqlmock.NewRows([]string{"name", "age"}).AddRow("kewei", 30)
+	s.mockReplica[numReplica-1].ExpectQuery("^SELECT (.+) FROM table").WithArgs("kewei").WillReturnRows(returnRows)
+	// Run
+	rows, err := s.mydb.QueryContext(context.Background(), "SELECT * FROM table WHERE name=?", "kewei")
 	rows.Close()
 	s.Require().Equal(err, nil)
 }

@@ -76,7 +76,7 @@ func (db *RWSplitDB) Ping() error {
 	for result := range db.concurrentlyDo(ping) {
 		if result != nil {
 			err = result
-			log.Errorf("Ping replica failed. Error %s", err.Error())
+			log.Warnf("Ping replica failed. Error %s", err.Error())
 		}
 	}
 	return err
@@ -96,7 +96,7 @@ func (db *RWSplitDB) PingContext(ctx context.Context) error {
 	for result := range db.concurrentlyDo(ping) {
 		if result != nil {
 			err = result
-			log.Errorf("Ping replica failed. Error %s", err.Error())
+			log.Warnf("Ping replica failed. Error %s", err.Error())
 		}
 	}
 	return err
@@ -207,7 +207,7 @@ func (db *RWSplitDB) readReplicaRandomRoundRobin(f func(dbIns *instance) error) 
 			if err = f(db.readreplicas[idx]); err != nil {
 				// notify monitor to update state of this replica
 				db.notifyCheckReplica(int(idx))
-				log.Errorf("Error on readReplica[%d]. Error: %s", idx, err.Error())
+				log.Warnf("Error on readReplica[%d]. Error: %s", idx, err.Error())
 				continue
 			}
 			// On success, break the loop and return nil
