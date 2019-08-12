@@ -41,7 +41,7 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 		readreplicas:     replicaInses,
 		numReplica:       len(replicaInses),
 		toBeCheckIdxChan: make(chan int, len(replicaInses)*2),
-		shutDownChan:     make(chan struct{}),
+		shutDownChan:     make(chan struct{}, 1),
 	}
 
 	// Check connection state for each replica
@@ -62,14 +62,9 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 	return db, nil
 }
 
-func (db *RWSplitDB) readReplicaRoundRobin() *instance {
-	db.count++
-	return db.readreplicas[db.count%len(db.readreplicas)]
-}
-
 func (db *RWSplitDB) Ping() error {
 	if err := db.master.Ping(); err != nil {
-		fmt.Errorf(err.Error())
+		log.Errorf("Ping master failed. Error %s", err.Error())
 		return err
 	}
 
@@ -81,7 +76,7 @@ func (db *RWSplitDB) Ping() error {
 	for result := range db.concurrentlyDo(ping) {
 		if result != nil {
 			err = result
-			fmt.Errorf(err.Error())
+			log.Errorf("Ping replica failed. Error %s", err.Error())
 		}
 	}
 	return err
@@ -89,7 +84,7 @@ func (db *RWSplitDB) Ping() error {
 
 func (db *RWSplitDB) PingContext(ctx context.Context) error {
 	if err := db.master.PingContext(ctx); err != nil {
-		fmt.Errorf(err.Error())
+		log.Errorf("Ping master failed. Error %s", err.Error())
 		return err
 	}
 
@@ -101,7 +96,7 @@ func (db *RWSplitDB) PingContext(ctx context.Context) error {
 	for result := range db.concurrentlyDo(ping) {
 		if result != nil {
 			err = result
-			fmt.Errorf(err.Error())
+			log.Errorf("Ping replica failed. Error %s", err.Error())
 		}
 	}
 	return err
@@ -259,11 +254,9 @@ func (db *RWSplitDB) replicaChecker() {
 		case <-time.After(periodicallyCheckTime):
 			for range db.concurrentlyDo(checkConn) {
 			}
-			return
 		case idx := <-db.toBeCheckIdxChan:
 			// Someone reports a replica is disconnected, so check it.
 			db.readreplicas[idx].CheckConnection()
-			return
 		case <-db.shutDownChan:
 			return
 		}

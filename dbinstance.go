@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+var (
+	diffCheckingTime = int64(5)
+)
+
 type instance struct {
 	*sql.DB
 	// Cached DB state
@@ -31,7 +35,7 @@ func (i *instance) IsAlive() bool {
 // This function is thread-safe. Only one thread is allowed to ping DB anytime.
 func (i *instance) CheckConnection() DBState {
 	t := atomic.LoadInt64(&i.lastCheckTime)
-	if time.Now().Unix()-t < 5 {
+	if time.Now().Unix()-t < diffCheckingTime {
 		// Skip to check if last check time within 5 sec
 		return i.safeGetState()
 	}
