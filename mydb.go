@@ -22,6 +22,7 @@ type RWSplitDB struct {
 	numReplica       int
 	count            int
 	toBeCheckIdxChan chan int
+	checkMasterChan  chan struct{}
 	shutDownChan     chan struct{}
 }
 
@@ -41,6 +42,7 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 		readreplicas:     replicaInses,
 		numReplica:       len(replicaInses),
 		toBeCheckIdxChan: make(chan int, len(replicaInses)*2),
+		checkMasterChan:  make(chan struct{}, 1),
 		shutDownChan:     make(chan struct{}, 1),
 	}
 
@@ -57,7 +59,7 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 	}
 
 	// Launch a checker do periodical state checking
-	go db.replicaChecker()
+	go db.instanceChecker()
 
 	return db, nil
 }
@@ -139,11 +141,25 @@ func (db *RWSplitDB) QueryRowContext(ctx context.Context, query string, args ...
 }
 
 func (db *RWSplitDB) Begin() (*sql.Tx, error) {
-	return db.master.Begin()
+	if !db.master.IsAlive() {
+		return nil, ErrDisconnected
+	}
+	tx, err := db.master.Begin()
+	if err != nil {
+		db.notifyCheckMaster()
+	}
+	return tx, err
 }
 
 func (db *RWSplitDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
-	return db.master.BeginTx(ctx, opts)
+	if !db.master.IsAlive() {
+		return nil, ErrDisconnected
+	}
+	tx, err := db.master.BeginTx(ctx, opts)
+	if err != nil {
+		db.notifyCheckMaster()
+	}
+	return tx, err
 }
 
 func (db *RWSplitDB) Close() error {
@@ -158,19 +174,47 @@ func (db *RWSplitDB) Close() error {
 }
 
 func (db *RWSplitDB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return db.master.Exec(query, args...)
+	if !db.master.IsAlive() {
+		return nil, ErrDisconnected
+	}
+	res, err := db.master.Exec(query, args...)
+	if err != nil {
+		db.notifyCheckMaster()
+	}
+	return res, err
 }
 
 func (db *RWSplitDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	return db.master.ExecContext(ctx, query, args...)
+	if !db.master.IsAlive() {
+		return nil, ErrDisconnected
+	}
+	res, err := db.master.ExecContext(ctx, query, args...)
+	if err != nil {
+		db.notifyCheckMaster()
+	}
+	return res, err
 }
 
 func (db *RWSplitDB) Prepare(query string) (*sql.Stmt, error) {
-	return db.master.Prepare(query)
+	if !db.master.IsAlive() {
+		return nil, ErrDisconnected
+	}
+	stmt, err := db.master.Prepare(query)
+	if err != nil {
+		db.notifyCheckMaster()
+	}
+	return stmt, err
 }
 
 func (db *RWSplitDB) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
-	return db.master.PrepareContext(ctx, query)
+	if !db.master.IsAlive() {
+		return nil, ErrDisconnected
+	}
+	stmt, err := db.master.PrepareContext(ctx, query)
+	if err != nil {
+		db.notifyCheckMaster()
+	}
+	return stmt, err
 }
 
 func (db *RWSplitDB) SetConnMaxLifetime(d time.Duration) {
@@ -237,7 +281,7 @@ func (db *RWSplitDB) concurrentlyDo(f func(dbIns *instance) error) <-chan error 
 	return resultChan
 }
 
-// notifyCheckReplica notifies replica checker to check state of this replica.
+// notifyCheckReplica notifies instance checker to check state of replica indexed idx.
 func (db *RWSplitDB) notifyCheckReplica(idx int) {
 	select {
 	case db.toBeCheckIdxChan <- int(idx):
@@ -246,7 +290,16 @@ func (db *RWSplitDB) notifyCheckReplica(idx int) {
 	}
 }
 
-func (db *RWSplitDB) replicaChecker() {
+// notifyCheckReplica notifies instance checker to check state of master.
+func (db *RWSplitDB) notifyCheckMaster() {
+	select {
+	case db.checkMasterChan <- struct{}{}:
+	default:
+		// Skip it while buffer is full
+	}
+}
+
+func (db *RWSplitDB) instanceChecker() {
 	// This func runs in a infinite for loop to periodically
 	// check connection state until db is closed.
 	for {
@@ -254,6 +307,8 @@ func (db *RWSplitDB) replicaChecker() {
 		case <-time.After(periodicallyCheckTime):
 			for range db.concurrentlyDo(checkConn) {
 			}
+		case <-db.checkMasterChan:
+			db.master.CheckConnection()
 		case idx := <-db.toBeCheckIdxChan:
 			// Someone reports a replica is disconnected, so check it.
 			db.readreplicas[idx].CheckConnection()
