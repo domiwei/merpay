@@ -21,7 +21,7 @@ type RWSplitDB struct {
 	readreplicas     []*instance
 	numReplica       int
 	count            int
-	toBeCheckIdxChan chan int
+	checkReplicaChan chan int
 	checkMasterChan  chan struct{}
 	shutDownChan     chan struct{}
 }
@@ -41,7 +41,7 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 		master:           masterIns,
 		readreplicas:     replicaInses,
 		numReplica:       len(replicaInses),
-		toBeCheckIdxChan: make(chan int, len(replicaInses)*2),
+		checkReplicaChan: make(chan int, len(replicaInses)*2),
 		checkMasterChan:  make(chan struct{}, 1),
 		shutDownChan:     make(chan struct{}, 1),
 	}
@@ -290,7 +290,7 @@ func (db *RWSplitDB) concurrentlyDo(f func(dbIns *instance) error) <-chan error 
 // notifyCheckReplica notifies instance checker to check state of replica indexed idx.
 func (db *RWSplitDB) notifyCheckReplica(idx int) {
 	select {
-	case db.toBeCheckIdxChan <- int(idx):
+	case db.checkReplicaChan <- int(idx):
 	default:
 		// Skip it while buffer is full
 	}
@@ -315,9 +315,10 @@ func (db *RWSplitDB) instanceChecker() {
 				// Do nothing but wait until channel is closed by writer
 			}
 		case <-db.checkMasterChan:
+			// Receive a complaint that master is disconn, so check it.
 			db.master.CheckConnection()
-		case idx := <-db.toBeCheckIdxChan:
-			// Someone reports a replica is disconnected, so check it.
+		case idx := <-db.checkReplicaChan:
+			// Someone reports replica is disconnected, so check it.
 			db.readreplicas[idx].CheckConnection()
 		case <-db.shutDownChan:
 			return

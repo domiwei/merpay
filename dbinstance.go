@@ -16,7 +16,8 @@ type instance struct {
 	state DBState
 	// Last checking timestamp
 	lastCheckTime int64
-	pingLock      uint32
+	// It's a mutex to prevent ping action from cache avalanch
+	pingLock uint32
 }
 
 func NewDBInstance(db *sql.DB) *instance {
@@ -41,6 +42,7 @@ func (i *instance) CheckConnection() DBState {
 	}
 
 	// Try lock so that only one thread is allowed to ping DB at a time.
+	// Note it's important to lock here to prevent this action from cache avalanche.
 	if !atomic.CompareAndSwapUint32(&i.pingLock, 0, 1) {
 		return i.safeGetState()
 	}
