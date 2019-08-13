@@ -191,6 +191,32 @@ func (s *mydbSuite) TestQueryRowContext() {
 	s.Equal(30, age)
 }
 
+func (s *mydbSuite) TestExec() {
+	s.mockMaster.ExpectExec("^INSERT INTO table").WithArgs("kewei", 30).WillReturnResult(sqlmock.NewResult(1, 1))
+	res, err := s.mydb.Exec("INSERT INTO table (name, age) VALUES (?, ?)", "kewei", 30)
+	// Check result
+	s.Require().NoError(err)
+	id, err := res.LastInsertId()
+	s.Require().NoError(err)
+	s.Equal(int64(1), id)
+	rowsAffect, err := res.RowsAffected()
+	s.Require().NoError(err)
+	s.Equal(int64(1), rowsAffect)
+}
+
+func (s *mydbSuite) TestExecContext() {
+	s.mockMaster.ExpectExec("^INSERT INTO table").WithArgs("kewei", 30).WillReturnResult(sqlmock.NewResult(1, 1))
+	res, err := s.mydb.ExecContext(context.Background(), "INSERT INTO table (name, age) VALUES (?, ?)", "kewei", 30)
+	// Check result
+	s.Require().NoError(err)
+	id, err := res.LastInsertId()
+	s.Require().NoError(err)
+	s.Equal(int64(1), id)
+	rowsAffect, err := res.RowsAffected()
+	s.Require().NoError(err)
+	s.Equal(int64(1), rowsAffect)
+}
+
 func TestMydb(t *testing.T) {
 	suite.Run(t, new(mydbSuite))
 }
