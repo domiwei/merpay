@@ -122,7 +122,15 @@ func (s *mydbSuite) TestQuery() {
 	s.mockReplica[numReplica-1].ExpectQuery("^SELECT (.+) FROM table").WithArgs("kewei").WillReturnRows(returnRows)
 	// Run
 	rows, err := s.mydb.Query("SELECT * FROM table WHERE name=?", "kewei")
-	rows.Close()
+	defer rows.Close()
+	// Check result
+	var name string
+	var age int
+	for rows.Next() {
+		s.Require().NoError(rows.Scan(&name, &age))
+		s.Equal("kewei", name)
+		s.Equal(30, age)
+	}
 	s.Require().Equal(err, nil)
 }
 
@@ -137,8 +145,50 @@ func (s *mydbSuite) TestQueryContext() {
 	s.mockReplica[numReplica-1].ExpectQuery("^SELECT (.+) FROM table").WithArgs("kewei").WillReturnRows(returnRows)
 	// Run
 	rows, err := s.mydb.QueryContext(context.Background(), "SELECT * FROM table WHERE name=?", "kewei")
-	rows.Close()
+	defer rows.Close()
+	// Check result
+	var name string
+	var age int
+	for rows.Next() {
+		s.Require().NoError(rows.Scan(&name, &age))
+		s.Equal("kewei", name)
+		s.Equal(30, age)
+	}
 	s.Require().Equal(err, nil)
+}
+
+func (s *mydbSuite) TestQueryRow() {
+	// Close some replicas except for last one
+	for i := 0; i < numReplica-1; i++ {
+		s.replica[i].Close()
+	}
+	// Prepare mock result
+	returnRows := sqlmock.NewRows([]string{"name", "age"}).AddRow("kewei", 30)
+	s.mockReplica[numReplica-1].ExpectQuery("^SELECT (.+) FROM table").WithArgs("kewei").WillReturnRows(returnRows)
+	// Run
+	var name string
+	var age int
+	err := s.mydb.QueryRow("SELECT * FROM table WHERE name=?", "kewei").Scan(&name, &age)
+	s.Require().NoError(err)
+	s.Equal("kewei", name)
+	s.Equal(30, age)
+}
+
+func (s *mydbSuite) TestQueryRowContext() {
+	// Close some replicas except for last one
+	for i := 0; i < numReplica-1; i++ {
+		s.replica[i].Close()
+	}
+	// Prepare mock result
+	returnRows := sqlmock.NewRows([]string{"name", "age"}).AddRow("kewei", 30)
+	s.mockReplica[numReplica-1].ExpectQuery("^SELECT (.+) FROM table").WithArgs("kewei").WillReturnRows(returnRows)
+	// Run
+	var name string
+	var age int
+	err := s.mydb.QueryRowContext(context.Background(), "SELECT * FROM table WHERE name=?", "kewei").Scan(&name, &age)
+	s.Require().NoError(err)
+	s.Equal("kewei", name)
+	s.Equal(30, age)
 }
 
 func TestMydb(t *testing.T) {
