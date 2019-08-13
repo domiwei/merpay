@@ -146,6 +146,7 @@ func (db *RWSplitDB) Begin() (*sql.Tx, error) {
 	}
 	tx, err := db.master.Begin()
 	if err != nil {
+		// Notify checker to check state of master
 		db.notifyCheckMaster()
 	}
 	return tx, err
@@ -157,6 +158,7 @@ func (db *RWSplitDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx,
 	}
 	tx, err := db.master.BeginTx(ctx, opts)
 	if err != nil {
+		// Notify checker to check state of master
 		db.notifyCheckMaster()
 	}
 	return tx, err
@@ -179,6 +181,7 @@ func (db *RWSplitDB) Exec(query string, args ...interface{}) (sql.Result, error)
 	}
 	res, err := db.master.Exec(query, args...)
 	if err != nil {
+		// Notify checker to check state of master
 		db.notifyCheckMaster()
 	}
 	return res, err
@@ -190,6 +193,7 @@ func (db *RWSplitDB) ExecContext(ctx context.Context, query string, args ...inte
 	}
 	res, err := db.master.ExecContext(ctx, query, args...)
 	if err != nil {
+		// Notify checker to check state of master
 		db.notifyCheckMaster()
 	}
 	return res, err
@@ -201,6 +205,7 @@ func (db *RWSplitDB) Prepare(query string) (*sql.Stmt, error) {
 	}
 	stmt, err := db.master.Prepare(query)
 	if err != nil {
+		// Notify checker to check state of master
 		db.notifyCheckMaster()
 	}
 	return stmt, err
@@ -212,6 +217,7 @@ func (db *RWSplitDB) PrepareContext(ctx context.Context, query string) (*sql.Stm
 	}
 	stmt, err := db.master.PrepareContext(ctx, query)
 	if err != nil {
+		// Notify checker to check state of master
 		db.notifyCheckMaster()
 	}
 	return stmt, err
@@ -306,6 +312,7 @@ func (db *RWSplitDB) instanceChecker() {
 		select {
 		case <-time.After(periodicallyCheckTime):
 			for range db.concurrentlyDo(checkConn) {
+				// Do nothing but wait until channel is closed by writer
 			}
 		case <-db.checkMasterChan:
 			db.master.CheckConnection()
