@@ -23,6 +23,7 @@ type mydbSuite struct {
 }
 
 func (s *mydbSuite) SetupSuite() {
+	// Always check connection while any request of connection checking coming.
 	diffCheckingTime = int64(0)
 }
 
@@ -214,6 +215,42 @@ func (s *mydbSuite) TestExecContext() {
 	rowsAffect, err := res.RowsAffected()
 	s.Require().NoError(err)
 	s.Equal(int64(1), rowsAffect)
+}
+
+func (s *mydbSuite) TestTransactionBegin() {
+	// We expect the begin/exec/commit runs via master db.
+	s.mockMaster.ExpectBegin()
+	s.mockMaster.ExpectExec("^INSERT INTO table").WithArgs("kewei", 30).WillReturnResult(sqlmock.NewResult(1, 1))
+	s.mockMaster.ExpectCommit()
+	// Run
+	tx, err := s.mydb.Begin()
+	s.Require().NoError(err)
+	_, err = tx.Exec("INSERT INTO table (name, age) VALUES (?, ?)", "kewei", 30)
+	s.Require().NoError(err)
+	s.Require().NoError(tx.Commit())
+}
+
+func (s *mydbSuite) TestTransactionBeginTx() {
+	// We expect the begin/exec/commit runs via master db.
+	s.mockMaster.ExpectBegin()
+	s.mockMaster.ExpectExec("^INSERT INTO table").WithArgs("kewei", 30).WillReturnResult(sqlmock.NewResult(1, 1))
+	s.mockMaster.ExpectCommit()
+	// Run
+	tx, err := s.mydb.BeginTx(context.Background(), nil)
+	s.Require().NoError(err)
+	_, err = tx.Exec("INSERT INTO table (name, age) VALUES (?, ?)", "kewei", 30)
+	s.Require().NoError(err)
+	s.Require().NoError(tx.Commit())
+}
+
+func (s *mydbSuite) TestPrepare() {
+	s.mockMaster.ExpectPrepare("^INSERT INTO table").ExpectExec().WithArgs("kewei", 30).WillReturnResult(sqlmock.NewResult(1, 1))
+	// Run
+	stmt, err := s.mydb.Prepare("INSERT INTO table (name, age) VALUES (?, ?)")
+	defer stmt.Close()
+	s.Require().NoError(err)
+	_, err = stmt.Exec("kewei", 30)
+	s.Require().NoError(err)
 }
 
 func TestMydb(t *testing.T) {
