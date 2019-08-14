@@ -16,25 +16,29 @@ var (
 	periodicallyCheckTime = 5 * time.Minute
 )
 
+// RWSplitDB defines a read-wrie splitting based DB structure implementing
+// DB interface. User benefits by using RWSplitDB without being aware of it.
+// All user has to do is nothing but using it in the same way of built-in
+// structure sql.DB.
 type RWSplitDB struct {
 	master           *instance
 	readreplicas     []*instance
 	numReplica       int
-	count            int
 	checkReplicaChan chan int
 	checkMasterChan  chan struct{}
 	shutDownChan     chan struct{}
 }
 
+// NewDB initializes the RWSplitDB and returns it.
 func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 	// Wrap master and replicas by using instance struct
-	masterIns := NewDBInstance(master)
+	masterIns := NewDBInstance(master, "master")
 	if state := masterIns.CheckConnection(); state != DBStateConnected {
 		return nil, fmt.Errorf("Cannot connect to master db")
 	}
 	replicaInses := []*instance{}
 	for i := range readreplicas {
-		replicaIns := NewDBInstance(readreplicas[i])
+		replicaIns := NewDBInstance(readreplicas[i], fmt.Sprintf("replica[%d]", i))
 		replicaInses = append(replicaInses, replicaIns)
 	}
 	db := &RWSplitDB{

@@ -4,14 +4,19 @@ import (
 	"database/sql"
 	"sync/atomic"
 	"time"
+
+	"github.com/prometheus/common/log"
 )
 
 var (
 	diffCheckingTime = int64(5)
 )
 
+// instance is a wapper of sql.DB so as to cache the connection state
+// of this DB.
 type instance struct {
 	*sql.DB
+	instanceName string
 	// Cached DB state
 	state DBState
 	// Last checking timestamp
@@ -20,10 +25,11 @@ type instance struct {
 	pingLock uint32
 }
 
-func NewDBInstance(db *sql.DB) *instance {
+func NewDBInstance(db *sql.DB, name string) *instance {
 	return &instance{
-		DB:    db,
-		state: DBStateDisconnected,
+		DB:           db,
+		instanceName: name,
+		state:        DBStateDisconnected,
 	}
 }
 
@@ -53,7 +59,9 @@ func (i *instance) CheckConnection() DBState {
 		newState = DBStateDisconnected
 	}
 	if oldState != newState {
-		i.updateState(oldState, newState)
+		if i.updateState(oldState, newState) {
+			log.Infof("Change state of %s", i.instanceName)
+		}
 	}
 	// Update check time
 	i.lastCheckTime = time.Now().Unix()
