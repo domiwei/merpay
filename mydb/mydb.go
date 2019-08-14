@@ -68,42 +68,58 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 	return db, nil
 }
 
+// Ping returns nil only when:
+// 1. Master is connected.
+// 2. At least one replica is connected.
 func (db *RWSplitDB) Ping() error {
 	if err := db.master.Ping(); err != nil {
-		log.Errorf("Ping master failed. Error %s", err.Error())
+		log.Errorf("Failed to ping. Error %s", err.Error())
 		return err
 	}
 
 	// Ping replica concurrently
 	var err error
+	anySuccess := false
 	ping := func(dbIns *instance) error {
 		return dbIns.Ping()
 	}
 	for result := range db.concurrentlyDo(ping) {
-		if result != nil {
-			err = result
-			log.Warnf("Ping replica failed. Error %s", err.Error())
+		if result == nil {
+			anySuccess = true
+		} else {
+			log.Warnf("Failed to ping replica. Error %s", err.Error())
 		}
+	}
+	// Return NoError nil if anyone of those replicas is connected.
+	if anySuccess {
+		return nil
 	}
 	return err
 }
 
+// PingContext performs just like Ping()
 func (db *RWSplitDB) PingContext(ctx context.Context) error {
 	if err := db.master.PingContext(ctx); err != nil {
-		log.Errorf("Ping master failed. Error %s", err.Error())
+		log.Errorf("Failed to ping master. Error %s", err.Error())
 		return err
 	}
 
 	// Ping replica concurrently
 	var err error
+	anySuccess := false
 	ping := func(dbIns *instance) error {
 		return dbIns.PingContext(ctx)
 	}
 	for result := range db.concurrentlyDo(ping) {
-		if result != nil {
-			err = result
-			log.Warnf("Ping replica failed. Error %s", err.Error())
+		if result == nil {
+			anySuccess = true
+		} else {
+			log.Warnf("Failed to ping replica. Error %s", err.Error())
 		}
+	}
+	// Return NoError nil if anyone of those replicas is connected.
+	if anySuccess {
+		return nil
 	}
 	return err
 }

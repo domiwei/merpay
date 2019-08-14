@@ -52,6 +52,7 @@ func (i *instance) CheckConnection() DBState {
 	if !atomic.CompareAndSwapUint32(&i.pingLock, 0, 1) {
 		return i.safeGetState()
 	}
+	// Remember to reset the lock
 	defer atomic.StoreUint32(&i.pingLock, 0)
 	oldState := i.safeGetState()
 	newState := DBStateConnected
