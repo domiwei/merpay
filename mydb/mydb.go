@@ -341,7 +341,8 @@ func checkConn(dbIns *instance) error {
 
 // Row is an auxiliary structure to imitate the fluent action Scan() coming after QueryRow()
 // defined in original sql interface in golang. By doing so, the action QueryRow().Scan()
-// is still allowed to perform while using this ReadWriteSplit DB driver.
+// is still able to correctly perform just like corresponding methods in sql.DB when using
+// this ReadWriteSplit DB driver.
 type Row struct {
 	query string
 	args  []interface{}
@@ -349,6 +350,7 @@ type Row struct {
 	db    *RWSplitDB
 }
 
+// Scan scans the one row result and return error
 func (r *Row) Scan(dest ...interface{}) error {
 	var err error
 	if err = r.db.readReplicaRandomRoundRobin(func(dbIns *instance) (queryErr error) {
