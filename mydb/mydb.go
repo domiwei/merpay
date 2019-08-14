@@ -13,6 +13,8 @@ import (
 
 var (
 	ErrDisconnected       = errors.New("DB was disconnected")
+	ErrReadDisConnected   = errors.New("DB cannot reach any replica")
+	ErrWriteDisConnected  = errors.New("BS cannot reach master")
 	periodicallyCheckTime = 5 * time.Minute
 )
 
@@ -74,11 +76,10 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 func (db *RWSplitDB) Ping() error {
 	if err := db.master.Ping(); err != nil {
 		log.Errorf("Failed to ping. Error %s", err.Error())
-		return err
+		return ErrWriteDisConnected
 	}
 
 	// Ping replica concurrently
-	var err error
 	anySuccess := false
 	ping := func(dbIns *instance) error {
 		return dbIns.Ping()
@@ -87,25 +88,24 @@ func (db *RWSplitDB) Ping() error {
 		if result == nil {
 			anySuccess = true
 		} else {
-			log.Warnf("Failed to ping replica. Error %s", err.Error())
+			log.Warnf("Failed to ping replica. Error %s", result.Error())
 		}
 	}
 	// Return NoError nil if anyone of those replicas is connected.
 	if anySuccess {
 		return nil
 	}
-	return err
+	return ErrReadDisConnected
 }
 
 // PingContext performs just like Ping()
 func (db *RWSplitDB) PingContext(ctx context.Context) error {
 	if err := db.master.PingContext(ctx); err != nil {
 		log.Errorf("Failed to ping master. Error %s", err.Error())
-		return err
+		return ErrWriteDisConnected
 	}
 
 	// Ping replica concurrently
-	var err error
 	anySuccess := false
 	ping := func(dbIns *instance) error {
 		return dbIns.PingContext(ctx)
@@ -114,14 +114,14 @@ func (db *RWSplitDB) PingContext(ctx context.Context) error {
 		if result == nil {
 			anySuccess = true
 		} else {
-			log.Warnf("Failed to ping replica. Error %s", err.Error())
+			log.Warnf("Failed to ping replica. Error %s", result.Error())
 		}
 	}
 	// Return NoError nil if anyone of those replicas is connected.
 	if anySuccess {
 		return nil
 	}
-	return err
+	return ErrReadDisConnected
 }
 
 func (db *RWSplitDB) Query(query string, args ...interface{}) (*sql.Rows, error) {

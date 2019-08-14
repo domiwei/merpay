@@ -111,6 +111,18 @@ func (s *mydbSuite) TestNewDB() {
 	}
 }
 
+func (s *mydbSuite) TestPing() {
+	// Close some replicas except for last one
+	for i := 0; i < numReplica-1; i++ {
+		s.replica[i].Close()
+	}
+	s.Require().NoError(s.mydb.Ping())
+
+	// Then close last one. We will get error later
+	s.replica[numReplica-1].Close()
+	s.Require().Error(s.mydb.Ping())
+}
+
 func (s *mydbSuite) TestQuery() {
 	// Close some replicas except for last one
 	for i := 0; i < numReplica-1; i++ {
