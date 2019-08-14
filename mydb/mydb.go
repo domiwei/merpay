@@ -332,7 +332,7 @@ func (db *RWSplitDB) instanceChecker() {
 		select {
 		case <-time.After(periodicallyCheckTime):
 			for range db.concurrentlyDo(checkConn) {
-				// Do nothing but wait until channel is closed by writer
+				// Do nothing but wait until channel is closed by sender
 			}
 		case <-db.checkMasterChan:
 			// Receive a complaint that master is disconn, so check it.
