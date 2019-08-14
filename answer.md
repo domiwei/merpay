@@ -1,3 +1,6 @@
+First section answers questions mentioned in task1. I will describe what issues I found
+in this source code.
+
 * Does the library fulfill the requirements described in the background section?
 ```
 At first glance, it seems to satisfy the requirement described in background section,
