@@ -17,9 +17,9 @@ var (
 )
 
 // RWSplitDB defines a read-wrie splitting based DB structure implementing
-// DB interface. User benefits by using RWSplitDB without being aware of it.
-// All user has to do is nothing but using it in the same way of built-in
-// structure sql.DB.
+// DB interface. User benefits by using RWSplitDB without being aware of how does
+// read-write splitting architecture actully work. All user has to do is nothing but
+// init by master-replicas and then use it in the same way of built-in sql.DB.
 type RWSplitDB struct {
 	master           *instance
 	readreplicas     []*instance
