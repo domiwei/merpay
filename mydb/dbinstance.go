@@ -73,6 +73,7 @@ func (i *instance) updateState(oldState, newState DBState) (success bool) {
 	return atomic.CompareAndSwapInt32((*int32)(&i.state), int32(oldState), int32(newState))
 }
 
+// safeGetState utilizes atomic load function to get state without data racing.
 func (i *instance) safeGetState() DBState {
 	return DBState(atomic.LoadInt32((*int32)(&i.state)))
 }
