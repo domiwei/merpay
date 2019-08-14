@@ -47,7 +47,7 @@ func NewDB(master *sql.DB, readreplicas ...*sql.DB) (DB, error) {
 		numReplica:       len(replicaInses),
 		checkReplicaChan: make(chan int, len(replicaInses)*2),
 		checkMasterChan:  make(chan struct{}, 1),
-		shutDownChan:     make(chan struct{}, 1),
+		shutDownChan:     make(chan struct{}),
 	}
 
 	// Check connection state for each replica

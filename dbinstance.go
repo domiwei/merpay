@@ -60,7 +60,7 @@ func (i *instance) CheckConnection() DBState {
 	}
 	if oldState != newState {
 		if i.updateState(oldState, newState) {
-			log.Infof("Change state of %s", i.instanceName)
+			log.Infof("Change state of %s from %s to %s", i.instanceName, stateStr[oldState], stateStr[newState])
 		}
 	}
 	// Update check time

@@ -23,6 +23,7 @@ type mydbSuite struct {
 }
 
 func (s *mydbSuite) SetupSuite() {
+	diffCheckingTime = int64(0)
 }
 
 func (s *mydbSuite) SetupTest() {
@@ -46,10 +47,8 @@ func (s *mydbSuite) SetupTest() {
 
 func (s *mydbSuite) TearDownTest() {
 	s.NoError(s.mockMaster.ExpectationsWereMet())
-	//s.master.Close()
 	for i := 0; i < numReplica; i++ {
 		s.NoError(s.mockReplica[i].ExpectationsWereMet())
-		//s.replica[i].Close()
 	}
 	s.mydb.Close()
 }
