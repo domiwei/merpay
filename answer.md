@@ -2,6 +2,11 @@
 ```
 At first glance, it seems to satisfy the requirement described in background section,
 but here is some potential bugs and data-racing problem and performance issue in this code.
+Thus I may not run as our expectation. For example, for query function defined in this
+r-w splitting db structure, it naively picks up a replica and query through it. However,
+the problem is, querying through it may get error because the replica is in periodical
+maintenance, but actually we are allowed to choose another replica to try our query because
+of the at-least-one-replica-up condition.
 It can be better if we do or solve exceptional handling, thread-safe problem, error handling,
 and concurrently querying replicas using go-routine.
 Besides, it may not run as our expectation. For example, it does not query by one of replica
@@ -38,3 +43,7 @@ data racing if we naively do nothing but just run db.count++. In this case, we c
 replace it with either lock mechanism or AddInt() in built-in library atomic to prevent
 it from happening.
 ```
+
+So, next step is, how can I improve it? Following describe what I did and how could
+I make it better by fixing thoses potential problem mentioned above.
+
