@@ -1,0 +1,25 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "ZuEoubU3QxNxcXzQ+01/kSXGhxE=",
+			"path": "github.com/DATA-DOG/go-sqlmock",
+			"revision": "e98392b8111b45f8126e00af035a0dd95dc12e8b",
+			"revisionTime": "2019-06-21T10:39:28Z"
+		},
+		{
+			"checksumSHA1": "MGnqHnmEqc1fjnYiWReSiW8C27A=",
+			"path": "github.com/prometheus/common/log",
+			"revision": "637d7c34db122e2d1a25d061423098663758d2d3",
+			"revisionTime": "2019-07-30T17:58:46Z"
+		},
+		{
+			"checksumSHA1": "lIp4dQzfVYRQARgsmRm3h3wRFgs=",
+			"path": "github.com/stretchr/testify/suite",
+			"revision": "221dbe5ed46703ee255b1da0dec05086f5035f62",
+			"revisionTime": "2019-05-17T17:51:56Z"
+		}
+	],
+	"rootPath": "github.com/m-rec/ae0019b8c0a5b284560ef57cfa84aba22b0a1d50"
+}
