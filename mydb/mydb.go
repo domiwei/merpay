@@ -334,6 +334,8 @@ func (db *RWSplitDB) instanceChecker() {
 			for range db.concurrentlyDo(checkConn) {
 				// Do nothing but wait until channel is closed by sender
 			}
+			// Also check msater
+			db.master.CheckConnection()
 		case <-db.checkMasterChan:
 			// Receive a complaint that master is disconn, so check it.
 			db.master.CheckConnection()
