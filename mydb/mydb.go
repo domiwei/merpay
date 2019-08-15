@@ -15,7 +15,7 @@ var (
 	ErrDisconnected       = errors.New("DB was disconnected")
 	ErrReadDisConnected   = errors.New("DB cannot reach any replica")
 	ErrWriteDisConnected  = errors.New("BS cannot reach master")
-	periodicallyCheckTime = 5 * time.Minute
+	periodicallyCheckTime = 30 * time.Second
 )
 
 // RWSplitDB defines a read-wrie splitting based DB structure implementing
