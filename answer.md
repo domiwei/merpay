@@ -2,7 +2,6 @@ First section answers questions mentioned in task1. I will describe what issues 
 in this source code.
 
 * Does the library fulfill the requirements described in the background section?
-```
 At first glance, it seems to satisfy the requirement described in background section,
 but here is some potential bugs and data-racing problem and performance issue in this code.
 Thus I may not run as our expectation. For example, for query function defined in this
@@ -15,7 +14,6 @@ and concurrently querying replicas using go-routine.
 Besides, it may not run as our expectation. For example, it does not query by one of replica
 as our expectation when someone just wants a read operation (ie. SELECT * FROM table) by
 Exec() method. In this case, it may need to analyse the sql statement to correct it.
-```
 
 * Is the library easy to use?
 ```
