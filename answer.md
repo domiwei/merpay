@@ -86,11 +86,11 @@ for index from number to number+numReplica:
 
 - Defer to QueryRow
 
-Because the error value in returned structure of built-in `Rows` is not exposed to caller,
-thus it's not allowed to fetch the error from this object. Therefore another auxiliary
-struct was introduced to make it still be fluent in the same way of built-in method. That is,
-execution of `QueryRow()` is defered until invoke `Scan()` method. `QueryRow().Scan()`
-fluent interface remains in this package.
+Because the error value in returned structure of `QueryRow()` of built-in `sql.Rows` is not
+exposed to caller, thus it's not allowed to fetch the error from this object. Therefore another
+auxiliary struct was introduced to make it still be fluent in the same way of built-in method.
+That is, execution of `QueryRow()` is defered until invoke `Scan()` method. The usage of fluent
+interface `QueryRow().Scan()` remains in this package.
 
 #### State checker
 
@@ -99,10 +99,10 @@ periodically check the state of master and replicas. It's a infinit for loop lis
 4 channels:
 
 1. A timer channel ringing every 30 seconds. Once timer rings, concurrently check state
-of master and all replicas by invoking `CheckConnection()`.
+of master and all replicas by invoking `CheckConnection()` of another structure **instance**.
 2. A channel receiving notification of checking state of master.
 3. A channel receiving notification of checking state of replica given index.
-4. Shutdown channel, which aims to gracefully shutdown.
+4. Shutdown channel, which aims to gracefully shutdown this go-routine.
 
 The state checking channels receive notification only when either any read operation (`Query()`)
 gets failed or any write operation (`Exec(), Begin(), Prepare()`) gets error. Once it receives
@@ -116,8 +116,8 @@ utilizes built-in atomic operation to implement a lock-free mechanism to get/set
 The behavior of `CheckConnection()` is: First check the last check time, if time difference between
 now time and last check time is less than 5 seconds, just do nothing but return cached state. If not,
 try to get lock by using `atomic.CompareAndSwap()` to prevent it from **cache avalanche**.
-The one successfully get the lock is allowed to ping the target DB instance and update cached state atomically.
-The logic described above can be written in pesudo code:
+The one successfully getting the lock is allowed to ping the target DB instance and update cached state atomically.
+The logic described above can be written in following pseudo code:
 
 ```
 if nowTime - lastCheckTime < 5 seconds:
@@ -130,7 +130,7 @@ if nowState != newState:
 return newState
 ```
 
-By utilizing atomic library, `CheckConnection()` was implemented in a lock-free way, so it's no doubt a
+By utilizing built-in atomic library, `CheckConnection()` was implemented in a lock-free way, so it's no doubt a
 thread-safe function.
 
 #### Unittest
@@ -140,5 +140,5 @@ Even if it's in a scenario that some replicas get disconnected, it still works w
 
 ## Conlusion
 
-By solving potential issues above and improving using concurrent go-routines, this package is ready
+By solving potential issues above and improving performace using concurrent go-routines, this package is ready
 to be used in production environment.
