@@ -52,6 +52,7 @@ data racing if we naively do nothing but just run `db.count++`. In this case, we
 replace it with either lock mechanism or `AddInt()` in built-in library atomic to prevent
 it from happening.
 
+
 # Idea and Implementation
 
 So, next step is, how can I improve it? Following describe what I did and how could
