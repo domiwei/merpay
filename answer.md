@@ -104,12 +104,36 @@ of master and all replicas by invoking `CheckConnection()`.
 3. A channel receiving notification of checking state of replica given index.
 4. Shutdown channel, which aims to gracefully shutdown.
 
-The state checking channels receive notification only when either any read operation (`Query()`) gets failed or any write operation (`Exec(), Begin(), Prepare()`) gets error. Once it receives
+The state checking channels receive notification only when either any read operation (`Query()`)
+gets failed or any write operation (`Exec(), Begin(), Prepare()`) gets error. Once it receives
 notification, it immediately checks state of the corresponding DB and updates if state changes.
 
 #### Cached state of connection
 
-`insatance` is a wrapper structure to `sql.DB`, which is reponsible for caching state of db and further checking connection if someone calls `CheckConnection()`. The method `CheckCOnnection`
+`insatance` is a wrapper structure to `sql.DB`, which is reponsible for caching state of db and
+possibly further checking connection if someone calls `CheckConnection()`. The method `CheckConnection`
 utilizes built-in atomic operation to implement a lock-free mechanism to get/set state of DB.
+The behavior of `CheckConnection()` is: First check the last check time, if time difference between
+now time and last check time is less than 5 seconds, just do nothing but return cached state. If not,
+try to get lock by using `atomic.CompareAndSwap()` to prevent it from **cache avalanche**.
+The one successfully get the lock is allowed to ping the target DB instance and update cached state atomically.
+The logic described above can be written in pesudo code:
+
+```
+if nowTime - lastCheckTime < 5 seconds:
+	return nowState
+if fail to getLock:
+	return nowState
+newState = ping DB
+if nowState != newState:
+	atomically update the cached state
+return newState
+```
+
+By utilizing atomic library, `CheckConnection()` is a lock-free thread safe function.
 
 #### Unittest
+
+The file mydb_test.go uses third party go-sqlmock and testify/suite to test those methods.
+Even in a scenario that some replicas get disconnected, it still works well as expectation.
+
