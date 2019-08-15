@@ -12,10 +12,11 @@ r-w splitting db structure, it naively picks up a replica and query through it. 
 the problem is, querying through it may get error because the replica is in periodical
 maintenance, but actually we are allowed to choose another replica to try our query because
 of the at-least-one-replica-up condition.
+
 It can be better if we do or solve exceptional handling, thread-safe problem, error handling,
 and concurrently querying replicas using go-routine.
 Besides, it may not run as our expectation. For example, it does not query by one of replica
-as our expectation when someone just wants a read operation (ie. SELECT * FROM table) by
+as our expectation when someone just wants a read operation (ie. `SELECT * FROM table`) by
 `Exec()` method. In this case, it may need to analyse the sql statement to correct it.
 
 #### Is the library easy to use?
@@ -25,6 +26,12 @@ we can abstract those method set as an interface so that it gets more modular. T
 if there is another sql read-write strategy, all our developer has to do is to implement
 another structure satistied the interface. Hence just need to return another implementation of
 this interface rather than modify the usage or type of specified structure in code base.
+
+Besides, there is definition problem about function `Ping()` and `PingContext()`, because
+in this initialized source code, it returns error once either any of replica gets error or
+master gets error. However, actually the db object still usable only if at least one replica
+still gets connected. Thus the behavior of both of these two function should be defined
+and revised.
 
 #### Is the code quality assured?
 
