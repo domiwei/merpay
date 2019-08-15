@@ -1,13 +1,13 @@
 # Opinion on Those Questions
 
-First section answers questions mentioned in task1. I will describe what issues I found
+First section answer the questions mentioned in task1. I will describe some issues found
 in this source code.
 
 ### Does the library fulfill the requirements described in the background section?
 
 At first glance, it seems to satisfy the requirement described in background section,
-but here is some **potential bugs** and **data-racing problem** and **performance issue** in this code.
-Thus It may not run as our expectation. For example, for query function defined in this
+but here is some **potential bugs** and **data-racing problem** and **performance issue**
+in this code. For example, for query function defined in this
 r-w splitting db structure, it naively picks up a replica and query through it. However,
 the problem is, querying through it may get error because the replica is in periodical
 maintenance, but actually we are allowed to choose another replica to try our query because
@@ -15,7 +15,7 @@ of the at-least-one-replica-up condition.
 
 It can be better if we do or solve exceptional handling, thread-safe problem, error handling,
 and concurrently querying replicas using go-routine.
-Besides, it may not run as our expectation. For example, it does not query by one of replica
+Besides, it may not run as our expectation. For example, it does not query replica
 as our expectation when someone just wants a read operation (ie. `SELECT * FROM table`) by
 `Exec()` method. In this case, it may need to analyse the sql statement to correct it.
 
@@ -99,13 +99,13 @@ A state checker is a go-routine launched when initializing a DB instance. It's g
 periodically check the state of master and replicas. It's a infinit for loop listening
 4 channels:
 
-1. A timer channel ringing every 30 seconds. Once timer rings, concurrently check state
+1. A timer channel rings every 30 seconds. Once timer rings, it concurrently check state
 of master and all replicas by invoking `CheckConnection()` of another structure **instance**.
-2. A channel receiving notification of checking state of master.
-3. A channel receiving notification of checking state of replica given index.
+2. A channel used to receive notification of checking state of master.
+3. A channel used to receive notification of checking state of replica given index.
 4. Shutdown channel, which aims to gracefully shutdown this go-routine.
 
-The state checking channels receive notification only when either any read operation (`Query()`)
+The state-checking channels receive notification only when either any read operation (`Query()`)
 gets failed or any write operation (`Exec(), Begin(), Prepare()`) gets error. Once it receives
 notification, it immediately checks state of the corresponding DB and updates if state changes.
 
