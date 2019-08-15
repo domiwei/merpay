@@ -4,6 +4,7 @@ First section answers questions mentioned in task1. I will describe what issues 
 in this source code.
 
 - Does the library fulfill the requirements described in the background section?
+
 At first glance, it seems to satisfy the requirement described in background section,
 but here is some potential bugs and data-racing problem and performance issue in this code.
 Thus I may not run as our expectation. For example, for query function defined in this
@@ -18,6 +19,7 @@ as our expectation when someone just wants a read operation (ie. SELECT * FROM t
 Exec() method. In this case, it may need to analyse the sql statement to correct it.
 
 - Is the library easy to use?
+
 In my opinion, it has clear interface to make programmer easily use it, but perhaps
 we can abstract those method set as an interface so that it gets more modular. That is,
 if there is another sql read-write strategy, all developer has to do is to implement another
@@ -25,11 +27,13 @@ structure satistied the interface. Hence just need to return another implementat
 this interface rather than modify the usage or type of specified structure in code base.
 
 - Is the code quality assured?
+
 Maybe we can write some unittest to make sure the output of each method is always as
 our expectation, and integrate the unittest to CI/CD flow to ensure the quality of
 pre-prodction code.
 
 - Is the code readable?
+
 It's a clear and simple code. The naming of variables and functions make sense, and
 there is no redundant code or dead logic. I think it's readable, at least for me.
 
