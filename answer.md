@@ -34,7 +34,6 @@ It's a clear and simple code. The naming of variables and functions make sense, 
 there is no redundant code or dead logic. I think it's readable, at least for me.
 
 - Is the library thread-safe?
-
 Definitely not. The count variable should be atomically updated. Otherwise it causes
 data racing if we naively do nothing but just run db.count++. In this case, we can
 replace it with either lock mechanism or AddInt() in built-in library atomic to prevent
