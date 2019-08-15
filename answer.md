@@ -1,4 +1,4 @@
-## Opinion on Those Questions
+# Opinion on Those Questions
 
 First section answers questions mentioned in task1. I will describe what issues I found
 in this source code.
@@ -52,12 +52,12 @@ data racing if we naively do nothing but just run `db.count++`. In this case, we
 replace it with either lock mechanism or `AddInt()` in built-in library atomic to prevent
 it from happening.
 
-## Idea and Implementation
+# Idea and Implementation
 
 So, next step is, how can I improve it? Following describe what I did and how could
 I make it better by fixing thoses potential problem mentioned above.
 
-#### Query for replica
+### Query for replica
 - RandomStartRoundRobin
 
 In the original source code, the data racing issue occurs in the step of picking up a
@@ -92,7 +92,7 @@ auxiliary struct was introduced to make it still be fluent in the same way of bu
 That is, execution of `QueryRow()` is defered until invoke `Scan()` method. The usage of fluent
 interface `QueryRow().Scan()` remains in this package.
 
-#### State checker
+### State checker
 
 A state checker is a go-routine launched when initializing a DB instance. It's geared to
 periodically check the state of master and replicas. It's a infinit for loop listening
@@ -108,7 +108,7 @@ The state checking channels receive notification only when either any read opera
 gets failed or any write operation (`Exec(), Begin(), Prepare()`) gets error. Once it receives
 notification, it immediately checks state of the corresponding DB and updates if state changes.
 
-#### Cached state of connection
+### Cached state of connection
 
 `insatance` is a wrapper structure to `sql.DB`, which is reponsible for caching state of db and
 possibly further checking connection if someone calls `CheckConnection()`. The method `CheckConnection`
@@ -133,12 +133,12 @@ return newState
 By utilizing built-in atomic library, `CheckConnection()` was implemented in a lock-free way, so it's no doubt a
 thread-safe function.
 
-#### Unittest
+### Unittest
 
 The file mydb_test.go imports third party library go-sqlmock and testify/suite to test those methods.
 Even if it's in a scenario that some replicas get disconnected, it still works well as expectation.
 
-## Conlusion
+# Conlusion
 
 By solving potential issues above and improving performace using concurrent go-routines, this package is ready
 to be used in production environment.
