@@ -130,10 +130,15 @@ if nowState != newState:
 return newState
 ```
 
-By utilizing atomic library, `CheckConnection()` is a lock-free thread safe function.
+By utilizing atomic library, `CheckConnection()` was implemented in a lock-free way, so it's no doubt a
+thread-safe function.
 
 #### Unittest
 
-The file mydb_test.go uses third party go-sqlmock and testify/suite to test those methods.
-Even in a scenario that some replicas get disconnected, it still works well as expectation.
+The file mydb_test.go imports third party library go-sqlmock and testify/suite to test those methods.
+Even if it's in a scenario that some replicas get disconnected, it still works well as expectation.
 
+## Conlusion
+
+By solving potential issues above and improving using concurrent go-routines, this package is ready
+to be used in production environment.
