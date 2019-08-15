@@ -71,17 +71,17 @@ data racing issue. Note that in the details of implementation, before query for 
 specific replica, it first check if this replica is still connected or not by the **cache state**
 so as to avoid redundant tries for any disconnected replica. Besides, if any query for a
 connected replica gets failure, it sends a signal via go-channel to notify **state checker**
-to ping the replica and change state of connection.
+to ping the replica and change state of connection if it cannot be reached.
 
-Hance, the overall logic is:
+Hence, the overall logic is:
 ```
-	number = random choose any index in [0, numReplica)
-	for index from number to number+numReplica:
-		actualIndex = index%numReplica
-		if replica indexed by actuallyIndex is alive:
-			err = query for it
-			if err:
-				notify checker to check replica of actualIndex
+number = random choose any index in [0, numReplica)
+for index from number to number+numReplica:
+	actualIndex = index%numReplica
+	if replica indexed by actuallyIndex is alive:
+		err = query for it
+		if err:
+			notify checker to check replica of actualIndex
 ```
 
 - Defer to QueryRow
