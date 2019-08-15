@@ -1,3 +1,4 @@
+## Opinion on Those Questions
 
 First section answers questions mentioned in task1. I will describe what issues I found
 in this source code.
@@ -32,12 +33,22 @@ pre-prodction code.
 It's a clear and simple code. The naming of variables and functions make sense, and
 there is no redundant code or dead logic. I think it's readable, at least for me.
 
-#### Is the library thread-safe?
+- Is the library thread-safe?
+
 Definitely not. The count variable should be atomically updated. Otherwise it causes
 data racing if we naively do nothing but just run db.count++. In this case, we can
 replace it with either lock mechanism or AddInt() in built-in library atomic to prevent
 it from happening.
 
+## Idea and Implementation
+
 So, next step is, how can I improve it? Following describe what I did and how could
 I make it better by fixing thoses potential problem mentioned above.
 
+#### Query for replica
+
+#### State checker
+
+#### Cached state of connection
+
+#### Unittest
