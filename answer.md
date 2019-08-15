@@ -63,7 +63,7 @@ I make it better by fixing thoses potential problem mentioned above.
 In the original source code, the data racing issue occurs in the step of picking up a
 replica without any lock mechanism. Here I replaced this strategy with another method
 to prevent it from data racing but still no need of any lock. The idea is, for each
-query, pick up a random numebr in the range [0, numReplica) and treat it as our starting
+query, pick up a random numebr in the range `[0, numReplica)` and treat it as our starting
 index to try our query, if the query for replica of initialized index gets failure, the
 index moves on to next one just like roundrobin method until it runs over all replicas.
 By doing so, we do not need the member variable `db.count` anymore so that there is no
@@ -72,6 +72,17 @@ specific replica, it first check if this replica is still connected or not by th
 so as to avoid redundant tries for any disconnected replica. Besides, if any query for a
 connected replica gets failure, it sends a signal via go-channel to notify **state checker**
 to ping the replica and change state of connection.
+
+Hance, the overall logic is:
+```
+	number = random choose any index in [0, numReplica)
+	for index from number to number+numReplica:
+		actualIndex = index%numReplica
+		if replica indexed by actuallyIndex is alive:
+			err = query for it
+			if err:
+				notify checker to check replica of actualIndex
+```
 
 - Defer to QueryRow
 
