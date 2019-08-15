@@ -86,8 +86,30 @@ for index from number to number+numReplica:
 
 - Defer to QueryRow
 
+Because the error value in returned structure of built-in `Rows` is not exposed to caller,
+thus it's not allowed to fetch the error from this object. Therefore another auxiliary
+struct was introduced to make it still be fluent in the same way of built-in method. That is,
+execution of `QueryRow()` is defered until invoke `Scan()` method. `QueryRow().Scan()`
+fluent interface remains in this package.
+
 #### State checker
 
+A state checker is a go-routine launched when initializing a DB instance. It's geared to
+periodically check the state of master and replicas. It's a infinit for loop listening
+4 channels:
+
+1. A timer channel ringing every 30 seconds. Once timer rings, concurrently check state
+of master and all replicas by invoking `CheckConnection()`.
+2. A channel receiving notification of checking state of master.
+3. A channel receiving notification of checking state of replica given index.
+4. Shutdown channel, which aims to gracefully shutdown.
+
+The state checking channels receive notification only when either any read operation (`Query()`) gets failed or any write operation (`Exec(), Begin(), Prepare()`) gets error. Once it receives
+notification, it immediately checks state of the corresponding DB and updates if state changes.
+
 #### Cached state of connection
+
+`insatance` is a wrapper structure to `sql.DB`, which is reponsible for caching state of db and further checking connection if someone calls `CheckConnection()`. The method `CheckCOnnection`
+utilizes built-in atomic operation to implement a lock-free mechanism to get/set state of DB.
 
 #### Unittest
